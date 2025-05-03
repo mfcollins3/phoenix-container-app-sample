@@ -4,13 +4,16 @@
     "service": "hub",
     "workspaceFolder": "/workspace",
     "features": {
-        "ghcr.io/devcontainers/features/git:1": {}
+        "ghcr.io/devcontainers/features/git:1": {},
+        "ghcr.io/azure/azure-dev/azd:latest": {}
     },
     "remoteUser": "vscode",
     "postCreateCommand": "bash .devcontainer/postCreateCommand.sh",
     "customizations": {
         "vscode": {
-            "extensions": []
+            "extensions": [
+                "ms-azuretools.azure-dev"
+            ]
         }
     }
 }

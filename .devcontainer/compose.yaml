@@ -1,0 +1,22 @@
+# Copyright 2025 Neudesic, an IBM Company
+#
+# This program is confidential and proprietary to Neudesic, an IBM Company,
+# and may not be reproduced, published, or disclosed to others without company
+# authorization.
+
+services:
+  hub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspace:cached
+    # This is the service that hosts the development environment, so we need
+    # to keep the container running so that we can work in it. We use the
+    # `sleep infinity` command to keep the container running indefinitely.
+    command: sleep infinity
+    # Ptrace-based debuggers like C++, Go, and Rust require the following.
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined

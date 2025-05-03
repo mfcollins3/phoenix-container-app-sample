@@ -27,6 +27,9 @@ param logAnalyticsWorkspaceName string = ''
 @description('Email address of the owner of the Azure resources')
 param ownerEmail string
 
+@description('Name of the virtual network to be created')
+param virtualNetworkName string = ''
+
 var abbrs = loadJsonContent('./abbreviations.json')
 
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
@@ -54,6 +57,29 @@ module monitoring 'br/public:avm/ptn/azd/monitoring:0.1.1' = {
     applicationInsightsDashboardName: !empty(applicationInsightsDashboardName) ? applicationInsightsDashboardName : '${abbrs.portalDashboards}${resourceToken}'
     applicationInsightsName: !empty(applicationInsightsName) ? applicationInsightsName : '${abbrs.insightsComponents}${resourceToken}'
     logAnalyticsName: !empty(logAnalyticsWorkspaceName) ? logAnalyticsWorkspaceName : '${abbrs.operationalInsightsWorkspaces}${resourceToken}'
+    location: location
+    tags: tags
+  }
+}
+
+module virtualNetwork 'br/public:avm/res/network/virtual-network:0.6.1' = {
+  name: 'virtualNetwork'
+  scope: rg
+  params: {
+    name: !empty(virtualNetworkName) ? virtualNetworkName : '${abbrs.networkVirtualNetworks}${resourceToken}'
+    addressPrefixes: [
+      '10.0.0.0/16'
+    ]
+    subnets: [
+      {
+        name: 'hub'
+        addressPrefix: '10.0.0.0/23'
+      }
+      {
+        name: 'services'
+        addressPrefix: '10.0.2.0/24'
+      }
+    ]
     location: location
     tags: tags
   }

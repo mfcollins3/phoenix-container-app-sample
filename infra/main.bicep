@@ -23,6 +23,9 @@ param containerRegistryName string = ''
 @description('Name of the environment that can be used as part of naming resource convention')
 param environmentName string
 
+@description('Name of the Key Vault to be created')
+param keyVaultName string = ''
+
 @minLength(1)
 @description('Primary location for all resources')
 param location string
@@ -107,6 +110,23 @@ module containerApps 'br/public:avm/ptn/azd/container-apps-stack:0.1.1' = {
     location: location
     tags: tags
     zoneRedundant: false
+  }
+}
+
+module keyVault 'br/public:avm/res/key-vault/vault:0.12.1' = {
+  name: 'keyVault'
+  scope: rg
+  params: {
+    name: !empty(keyVaultName) ? keyVaultName : '${abbrs.keyVaultVaults}${resourceToken}'
+    enableRbacAuthorization: true
+    privateEndpoints: [
+      {
+        subnetResourceId: virtualNetwork.outputs.subnetResourceIds[1]
+      }
+    ]
+    sku: 'standard'
+    location: location
+    tags: tags
   }
 }
 

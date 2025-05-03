@@ -12,6 +12,12 @@ param applicationInsightsDashboardName string = ''
 @description('Name of the Application Insights resource to be created')
 param applicationInsightsName string = ''
 
+@description('Name of the Container Apps Environment to be created')
+param containerAppsEnvironmentName string = ''
+
+@description('Name of the Container Registry to be created')
+param containerRegistryName string = ''
+
 @minLength(1)
 @maxLength(64)
 @description('Name of the environment that can be used as part of naming resource convention')
@@ -84,3 +90,30 @@ module virtualNetwork 'br/public:avm/res/network/virtual-network:0.6.1' = {
     tags: tags
   }
 }
+
+module containerApps 'br/public:avm/ptn/azd/container-apps-stack:0.1.1' = {
+  name: 'containerApps'
+  scope: rg
+  params: {
+    containerAppsEnvironmentName: !empty(containerAppsEnvironmentName) ? containerAppsEnvironmentName : '${abbrs.appManagedEnvironments}${resourceToken}'
+    containerRegistryName: !empty(containerRegistryName) ? containerRegistryName : '${abbrs.containerRegistryRegistries}${resourceToken}'
+    logAnalyticsWorkspaceResourceId: monitoring.outputs.logAnalyticsWorkspaceResourceId
+    acrAdminUserEnabled: true
+    acrSku: 'Basic'
+    appInsightsConnectionString: monitoring.outputs.applicationInsightsConnectionString
+    daprAIInstrumentationKey: monitoring.outputs.applicationInsightsInstrumentationKey
+    enableTelemetry: true
+    infrastructureSubnetResourceId: virtualNetwork.outputs.subnetResourceIds[0]
+    location: location
+    tags: tags
+    zoneRedundant: false
+  }
+}
+
+output APPLICATIONINSIGHTS_CONNECTION_STRING string = monitoring.outputs.applicationInsightsConnectionString
+output APPLICATIONINSIGHTS_NAME string = monitoring.outputs.applicationInsightsName
+output AZURE_CONTAINER_ENVIRONMENT_NAME string = containerApps.outputs.environmentName
+output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerApps.outputs.registryLoginServer
+output AZURE_CONTAINER_REGISTRY_NAME string = containerApps.outputs.registryName
+output AZURE_LOCATION string = location
+output AZURE_TENANT_ID string = tenant().tenantId

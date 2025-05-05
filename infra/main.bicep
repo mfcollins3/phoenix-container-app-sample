@@ -36,6 +36,18 @@ param logAnalyticsWorkspaceName string = ''
 @description('Email address of the owner of the Azure resources')
 param ownerEmail string
 
+@description('Login name of the PostgreSQL server administrator to be created')
+param postgresAdministratorLogin string = 'postgres'
+
+@description('Password of the PostgreSQL server administrator to be created')
+@secure()
+param postgresAdministratorLoginPassword string
+
+param postgresPrivateEndpointName string = ''
+
+@description('Name of the PostgreSQL server to be created')
+param postgresServerName string = ''
+
 @description('Name of the virtual network to be created')
 param virtualNetworkName string = ''
 
@@ -113,18 +125,98 @@ module containerApps 'br/public:avm/ptn/azd/container-apps-stack:0.1.1' = {
   }
 }
 
+module postgresPrivateDnsZone 'br/public:avm/res/network/private-dns-zone:0.7.1' = {
+  name: 'postgresPrivateDnsZone'
+  scope: rg
+  params: {
+    name: 'privatelink.postgres.database.azure.com'
+    location: 'global'
+    tags: tags
+    virtualNetworkLinks: [
+      {
+        name: 'postgresPrivateDnsZoneLink'
+        virtualNetworkResourceId: virtualNetwork.outputs.resourceId
+        registrationEnabled: false
+      }
+    ]
+  }
+}
+
+module postgres 'br/public:avm/res/db-for-postgre-sql/flexible-server:0.11.0' = {
+  name: 'postgres'
+  scope: rg
+  params: {
+    name: !empty(postgresServerName) ? postgresServerName : '${abbrs.dBforPostgreSQLServers}${resourceToken}'
+    skuName: 'Standard_B1ms'
+    tier: 'Burstable'
+    administratorLogin: postgresAdministratorLogin
+    administratorLoginPassword: postgresAdministratorLoginPassword
+    location: location
+    tags: tags
+    version: '16'
+    highAvailability: 'Disabled'
+    geoRedundantBackup: 'Disabled'
+    privateEndpoints: [
+      {
+        subnetResourceId: virtualNetwork.outputs.subnetResourceIds[1]
+        service: 'postgresqlServer'
+        privateDnsZoneGroup: {
+          privateDnsZoneGroupConfigs: [
+            {
+              privateDnsZoneResourceId: postgresPrivateDnsZone.outputs.resourceId
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+
+module keyVaultPrivateDnsZone 'br/public:avm/res/network/private-dns-zone:0.7.1' = {
+  name: 'keyVaultPrivateDnsZone'
+  scope: rg
+  params: {
+    name: 'privatelink.vaultcore.azure.net'
+    location: 'global'
+    tags: tags
+    virtualNetworkLinks: [
+      {
+        name: 'keyVaultPrivateDnsZoneLink'
+        virtualNetworkResourceId: virtualNetwork.outputs.resourceId
+        registrationEnabled: false
+      }
+    ]
+  }
+}
+
 module keyVault 'br/public:avm/res/key-vault/vault:0.12.1' = {
   name: 'keyVault'
   scope: rg
   params: {
-    name: !empty(keyVaultName) ? keyVaultName : '${abbrs.keyVaultVaults}${resourceToken}'
+    name: !empty(keyVaultName) ? keyVaultName : '${abbrs.keyVaultVaults}hub-${resourceToken}'
     enableRbacAuthorization: true
     privateEndpoints: [
       {
         subnetResourceId: virtualNetwork.outputs.subnetResourceIds[1]
+        service: 'vault'
+        privateDnsZoneGroup: {
+          privateDnsZoneGroupConfigs: [
+            {
+              privateDnsZoneResourceId: keyVaultPrivateDnsZone.outputs.resourceId
+            }
+          ]
+        }
       }
     ]
     sku: 'standard'
+    secrets: [
+      {
+        name: 'EctoDatabaseURL'
+        value: 'ecto://${postgresAdministratorLogin}:${postgresAdministratorLoginPassword}@${postgres.outputs.name}.privatelink.postgres.database.azure.com:5432/hub-prod'
+      }
+    ]
+    enablePurgeProtection: false
+    enableSoftDelete: false
     location: location
     tags: tags
   }
@@ -137,3 +229,4 @@ output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerApps.outputs.registry
 output AZURE_CONTAINER_REGISTRY_NAME string = containerApps.outputs.registryName
 output AZURE_LOCATION string = location
 output AZURE_TENANT_ID string = tenant().tenantId
+output POSTGRES_HOST string = postgres.outputs.fqdn

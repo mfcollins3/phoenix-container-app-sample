@@ -9,3 +9,7 @@
 name: hub
 
 services:
+  web:
+    project: src/hub
+    host: containerapp
+    language: js

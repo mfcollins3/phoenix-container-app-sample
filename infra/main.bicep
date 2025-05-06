@@ -43,13 +43,18 @@ param postgresAdministratorLogin string = 'postgres'
 @secure()
 param postgresAdministratorLoginPassword string
 
-param postgresPrivateEndpointName string = ''
-
 @description('Name of the PostgreSQL server to be created')
 param postgresServerName string = ''
 
+@description('The secret key for the Elixir application')
+@secure()
+param secretKeyBase string
+
 @description('Name of the virtual network to be created')
 param virtualNetworkName string = ''
+
+@description('Name of the web container app to be created')
+param webAppName string = ''
 
 var abbrs = loadJsonContent('./abbreviations.json')
 
@@ -208,17 +213,80 @@ module keyVault 'br/public:avm/res/key-vault/vault:0.12.1' = {
         }
       }
     ]
-    sku: 'standard'
     secrets: [
       {
         name: 'EctoDatabaseURL'
         value: 'ecto://${postgresAdministratorLogin}:${postgresAdministratorLoginPassword}@${postgres.outputs.name}.privatelink.postgres.database.azure.com:5432/hub-prod'
       }
+      {
+        name: 'SecretKeyBase'
+        value: secretKeyBase
+      }
     ]
+    roleAssignments: [
+      {
+        roleDefinitionIdOrName: 'Key Vault Secrets User'
+        principalId: webIdentity.outputs.principalId
+        principalType: 'ServicePrincipal'
+      }
+    ]
+    sku: 'standard'
     enablePurgeProtection: false
     enableSoftDelete: false
     location: location
     tags: tags
+  }
+}
+
+module webIdentity 'br/public:avm/res/managed-identity/user-assigned-identity:0.4.1' = {
+  name: 'webIdentity'
+  scope: rg
+  params: {
+    name: '${abbrs.managedIdentityUserAssignedIdentities}web-${resourceToken}'
+    location: location
+  }
+}
+
+module web 'br/public:avm/ptn/azd/container-app-upsert:0.1.2' = {
+  name: 'web'
+  scope: rg
+  params: {
+    name: !empty(webAppName) ? webAppName : '${abbrs.appContainerApps}web-${resourceToken}'
+    containerAppsEnvironmentName: containerApps.outputs.environmentName
+    containerRegistryName: containerApps.outputs.registryName
+    containerMaxReplicas: 1
+    containerMinReplicas: 1
+    targetPort: 4000
+    env: [
+      {
+        name: 'DATABASE_URL'
+        secretRef: 'ecto-database-url'
+      }
+      {
+        name: 'SECRET_KEY_BASE'
+        secretRef: 'secret-key-base'
+      }
+    ]
+    secrets: {
+      secureList: [
+        {
+          name: 'ecto-database-url'
+          keyVaultUrl: keyVault.outputs.secrets[0].uri
+          identity: webIdentity.outputs.resourceId
+        }
+        {
+          name: 'secret-key-base'
+          keyVaultUrl: keyVault.outputs.secrets[1].uri
+          identity: webIdentity.outputs.resourceId
+        }
+      ]
+    }
+    identityType: 'UserAssigned'
+    identityName: webIdentity.name
+    userAssignedIdentityResourceId: webIdentity.outputs.resourceId
+    identityPrincipalId: webIdentity.outputs.principalId
+    location: location
+    tags: union(tags, { 'azd-service-name': 'web' })
   }
 }
 

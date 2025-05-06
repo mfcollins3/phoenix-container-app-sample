@@ -6,6 +6,7 @@
     "features": {
         "ghcr.io/devcontainers/features/git:1": {},
         "ghcr.io/azure/azure-dev/azd:latest": {},
+        "ghcr.io/devcontainers/features/github-cli:1": {},
         "ghcr.io/devcontainers/features/docker-in-docker:2": {},
         "./features/elixir": {
             "installPhoenixFramework": true

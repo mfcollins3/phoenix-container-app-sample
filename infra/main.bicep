@@ -1,9 +1,3 @@
-// Copyright 2025 Neudesic, an IBM Company
-//
-// This program is confidential and proprietary to Neudesic, an IBM Company,
-// and may not be reproduced, published, or disclosed to others without company
-// authorization.
-
 targetScope = 'subscription'
 
 @description('Name of the Application Insights dashboard to be created')
@@ -216,7 +210,7 @@ module keyVault 'br/public:avm/res/key-vault/vault:0.12.1' = {
     secrets: [
       {
         name: 'EctoDatabaseURL'
-        value: 'ecto://${postgresAdministratorLogin}:${postgresAdministratorLoginPassword}@${postgres.outputs.name}.privatelink.postgres.database.azure.com:5432/hub-prod'
+        value: 'ecto://${postgresAdministratorLogin}:${postgresAdministratorLoginPassword}@${postgres.outputs.name}.privatelink.postgres.database.azure.com:5432/hub_prod'
       }
       {
         name: 'SecretKeyBase'
